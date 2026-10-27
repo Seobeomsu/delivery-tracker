@@ -138,7 +138,18 @@ class YamatoTrackScraper {
         return TrackEventStatusCode.InTransit;
       case "配達完了": // Delivered
       case "配達完了（宅配ボックス）": // Delivered (in delivery box)
+      case "お客様引渡完了": // Handed over to the customer (at store)
         return TrackEventStatusCode.Delivered;
+      case "作業店通過": // Passed through a branch
+      case "輸送経路修正": // Route corrected
+        return TrackEventStatusCode.InTransit;
+      case "保管中（ご指定店）": // Held at the designated store
+      case "配達担当店保管中": // Held at the delivering branch
+        return TrackEventStatusCode.AvailableForPickup;
+    }
+    if (text?.startsWith("持戻") === true) {
+      // Brought back, e.g. 持戻（ご不在） / 持戻（ポスト投函不可）
+      return TrackEventStatusCode.AttemptFail;
     }
 
     this.logger.warn("Unexpected status code", {
