@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from "@jest/globals";
-import { Sagawa, parseSearchResponse } from ".";
+import { Sagawa, mapSagawaStatus, parseSearchResponse } from ".";
 import { CarrierUpstreamFetcher } from "../../carrier-upstream-fetcher/CarrierUpstreamFetcher";
 import { TrackEventStatusCode } from "../../core";
 import { NotFoundError } from "../../core/errors";
@@ -14,7 +14,7 @@ const pageHtml = (): string =>
 const chunk = (id: string): string =>
   `let s=(0,n.createServerReference)("${id}",n.callServer,void 0,n.findSourceMapURL,"searchPackages"),l="x";`;
 
-// Real response captured from the public page on 2026-10-27 (only office contacts included)
+// 2026-10-27 브라우저로 받은 실제 응답(360211174820, 사무소 연락처만 포함)
 const deliveredResponse = (trackingNumber: string): string =>
   '0:{"a":"$@1","q":"","i":false,"b":"-bTs-3bFlum9G-6PhWRJN"}\n' +
   `1:${JSON.stringify({
@@ -168,5 +168,22 @@ describe("jp.sagawa (e-customer)", () => {
 
   it("ignores RSC lines without results", () => {
     expect(parseSearchResponse('0:{"a":"$@1"}\n2:"$undefined"\n')).toBeNull();
+  });
+
+  it.each([
+    ["↓集荷", TrackEventStatusCode.AtPickup],
+    ["↓発送準備中", TrackEventStatusCode.AtPickup],
+    ["↓輸送中", TrackEventStatusCode.InTransit],
+    ["↓配達中", TrackEventStatusCode.OutForDelivery],
+    ["↓ご不在", TrackEventStatusCode.AttemptFail],
+    ["↓持戻り", TrackEventStatusCode.AttemptFail],
+    ["↓保管中", TrackEventStatusCode.AvailableForPickup],
+    ["↓営業所受取", TrackEventStatusCode.AvailableForPickup],
+    ["⇒配達完了", TrackEventStatusCode.Delivered],
+    ["⇒配達完了（宅配BOX）", TrackEventStatusCode.Delivered],
+    ["⇒配達完了【宅配BOX】", TrackEventStatusCode.Delivered],
+    ["↓調査中", TrackEventStatusCode.Exception],
+  ])("maps %s -> %s", (text, expected) => {
+    expect(mapSagawaStatus(text)).toBe(expected);
   });
 });
