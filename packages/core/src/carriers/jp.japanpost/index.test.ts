@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { JapanPost } from ".";
+import { JapanPost, mapJapanPostStatus } from ".";
 import { CarrierUpstreamFetcher } from "../../carrier-upstream-fetcher/CarrierUpstreamFetcher";
 import { TrackEventStatusCode } from "../../core";
 import { NotFoundError } from "../../core/errors";
@@ -101,5 +101,41 @@ describe("jp.japanpost", () => {
     await expect(track(notFoundHtml, "123456789012")).rejects.toBeInstanceOf(
       NotFoundError
     );
+  });
+
+  it.each([
+    ["引受", TrackEventStatusCode.AtPickup],
+    ["中継", TrackEventStatusCode.InTransit],
+    ["到着", TrackEventStatusCode.InTransit],
+    ["通過", TrackEventStatusCode.InTransit],
+    ["通過（車又は船輸送に変更）", TrackEventStatusCode.InTransit],
+    ["転送", TrackEventStatusCode.InTransit],
+    ["最寄局・最寄店送付", TrackEventStatusCode.InTransit],
+    ["配達希望受付", TrackEventStatusCode.InTransit],
+    ["国際交換局から発送", TrackEventStatusCode.InTransit],
+    ["国際交換局に到着", TrackEventStatusCode.InTransit],
+    ["輸出申告手続中", TrackEventStatusCode.InTransit],
+    ["通関手続中", TrackEventStatusCode.InTransit],
+    ["保税運送中", TrackEventStatusCode.InTransit],
+    ["保税運送到着", TrackEventStatusCode.InTransit],
+    ["税関から受領", TrackEventStatusCode.InTransit],
+    ["税関から名宛人に照会中", TrackEventStatusCode.InTransit],
+    ["税関検査のため税関へ提示", TrackEventStatusCode.InTransit],
+    ["植物検疫中", TrackEventStatusCode.InTransit],
+    ["持ち出し中", TrackEventStatusCode.OutForDelivery],
+    ["ご不在のため持ち戻り", TrackEventStatusCode.AttemptFail],
+    ["保管", TrackEventStatusCode.AvailableForPickup],
+    ["私書箱保管", TrackEventStatusCode.AvailableForPickup],
+    ["お届け先休日等のため保管", TrackEventStatusCode.AvailableForPickup],
+    ["保管期間延長受付", TrackEventStatusCode.AvailableForPickup],
+    ["はこぽす等に入庫", TrackEventStatusCode.AvailableForPickup],
+    ["コンビニエンスストア等に引渡", TrackEventStatusCode.AvailableForPickup],
+    ["お届け先にお届け済み", TrackEventStatusCode.Delivered],
+    ["窓口でお渡し", TrackEventStatusCode.Delivered],
+    ["差出人に返送", TrackEventStatusCode.Exception],
+    ["調査中", TrackEventStatusCode.Exception],
+    ["輸入取止め", TrackEventStatusCode.Exception],
+  ])("maps %s -> %s", (text, expected) => {
+    expect(mapJapanPostStatus(text)).toBe(expected);
   });
 });

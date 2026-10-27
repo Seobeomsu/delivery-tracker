@@ -122,42 +122,13 @@ class JapanPostTrackScraper {
   }
 
   private parseStatusCode(text: string | null): TrackEventStatusCode {
-    const status = text ?? "";
-    if (
-      status.includes("お届け済み") ||
-      status.includes("お渡し") ||
-      status.includes("配達完了")
-    ) {
-      return TrackEventStatusCode.Delivered;
+    const code = mapJapanPostStatus(text);
+    if (code === TrackEventStatusCode.Unknown) {
+      this.logger.warn("Unexpected status code", {
+        text,
+      });
     }
-    if (status.includes("不在") || status.includes("持ち戻り")) {
-      return TrackEventStatusCode.AttemptFail;
-    }
-    if (status.includes("持ち出し")) {
-      return TrackEventStatusCode.OutForDelivery;
-    }
-    if (status.includes("保管")) {
-      return TrackEventStatusCode.AvailableForPickup;
-    }
-    if (status.includes("返送") || status.includes("返還")) {
-      return TrackEventStatusCode.Exception;
-    }
-    if (status.includes("引受")) {
-      return TrackEventStatusCode.AtPickup;
-    }
-    if (
-      status.includes("到着") ||
-      status.includes("通過") ||
-      status.includes("発送") ||
-      status.includes("中継")
-    ) {
-      return TrackEventStatusCode.InTransit;
-    }
-
-    this.logger.warn("Unexpected status code", {
-      text,
-    });
-    return TrackEventStatusCode.Unknown;
+    return code;
   }
 
   private parseTime(time: string | null): DateTime | null {
@@ -181,4 +152,58 @@ class JapanPostTrackScraper {
   }
 }
 
-export { JapanPost };
+function mapJapanPostStatus(text: string | null): TrackEventStatusCode {
+  const status = text ?? "";
+  const has = (...keywords: string[]): boolean =>
+    keywords.some((it) => status.includes(it));
+
+  // Order matters: e.g. お届け先休日等のため保管 is not delivered, 保管期間延長受付 is a hold.
+  if (has("お届け済み", "お渡し")) {
+    // お届け先にお届け済み / 窓口でお渡し
+    return TrackEventStatusCode.Delivered;
+  }
+  if (has("返送", "返還", "調査", "取止め")) {
+    // 差出人に返送 / 調査中 / 輸入取止め
+    return TrackEventStatusCode.Exception;
+  }
+  if (has("不在", "持ち戻り")) {
+    // ご不在のため持ち戻り
+    return TrackEventStatusCode.AttemptFail;
+  }
+  if (has("持ち出し")) {
+    // 持ち出し中
+    return TrackEventStatusCode.OutForDelivery;
+  }
+  if (has("保管", "入庫", "引渡")) {
+    // 保管 / 私書箱保管 / お届け先休日等のため保管 / 保管期間延長受付 /
+    // はこぽす等に入庫 / コンビニエンスストア等に引渡
+    return TrackEventStatusCode.AvailableForPickup;
+  }
+  if (has("引受")) {
+    return TrackEventStatusCode.AtPickup;
+  }
+  if (
+    has(
+      "到着",
+      "通過",
+      "発送",
+      "中継",
+      "転送",
+      "送付",
+      "通関",
+      "保税",
+      "税関",
+      "検疫",
+      "申告",
+      "受付"
+    )
+  ) {
+    // 到着 / 通過 / 国際交換局から発送 / 中継 / 転送 / 最寄局・最寄店送付 / 通関手続中 /
+    // 保税運送中 / 税関から受領 / 植物検疫中 / 輸出申告手続中 / 配達希望受付
+    return TrackEventStatusCode.InTransit;
+  }
+
+  return TrackEventStatusCode.Unknown;
+}
+
+export { JapanPost, mapJapanPostStatus };
